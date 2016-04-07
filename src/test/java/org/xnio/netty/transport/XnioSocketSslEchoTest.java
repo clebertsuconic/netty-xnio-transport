@@ -19,6 +19,7 @@ package org.xnio.netty.transport;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.handler.ssl.SslContext;
 import io.netty.testsuite.transport.TestsuitePermutation;
 import io.netty.testsuite.transport.socket.SocketSslEchoTest;
 
@@ -29,10 +30,16 @@ import java.util.List;
  * @author <a href="mailto:nmaurer@redhat.com">Norman Maurer</a>
  */
 public class XnioSocketSslEchoTest extends SocketSslEchoTest {
-    public XnioSocketSslEchoTest(
-            boolean serverUsesDelegatedTaskExecutor, boolean clientUsesDelegatedTaskExecutor,
-            boolean useChunkedWriteHandler, boolean useCompositeByteBuf) {
-        super(serverUsesDelegatedTaskExecutor, clientUsesDelegatedTaskExecutor, useChunkedWriteHandler, useCompositeByteBuf);
+
+    public XnioSocketSslEchoTest(SslContext serverCtx,
+                                 SslContext clientCtx,
+                                 Renegotiation renegotiation,
+                                 boolean serverUsesDelegatedTaskExecutor,
+                                 boolean clientUsesDelegatedTaskExecutor,
+                                 boolean autoRead,
+                                 boolean useChunkedWriteHandler,
+                                 boolean useCompositeByteBuf) {
+        super(serverCtx, clientCtx, renegotiation, serverUsesDelegatedTaskExecutor, clientUsesDelegatedTaskExecutor, autoRead, useChunkedWriteHandler, useCompositeByteBuf);
     }
 
     @Override

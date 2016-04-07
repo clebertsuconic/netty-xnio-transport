@@ -60,6 +60,8 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
     private Runnable flushTask;
     private ChannelListener<ConduitStreamSinkChannel> writeListener;
     private volatile boolean closed;
+    private volatile boolean readPending;
+
 
     AbstractXnioSocketChannel(AbstractXnioServerSocketChannel parent) {
         super(parent);
@@ -102,7 +104,6 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
     protected void doDisconnect() throws Exception {
         doClose();
     }
-
 
 
     private void incompleteWrite(boolean setOpWrite) {
@@ -225,18 +226,18 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
                     in.remove();
                     continue;
                 }
-
-                if (!buf.isDirect()) {
-                    ByteBufAllocator alloc = alloc();
-                    if (alloc.isDirectBufferPooled()) {
-                        // Non-direct buffers are copied into JDK's own internal direct buffer on every I/O.
-                        // We can do a better job by using our pooled allocator. If the current allocator does not
-                        // pool a direct buffer, we rely on JDK's direct buffer pool.
-                        buf = alloc.directBuffer(readableBytes).writeBytes(buf);
-                        in.current(buf);
-                    }
-                }
-
+//
+//                if (!buf.isDirect()) {
+//                    ByteBufAllocator alloc = alloc();
+//                    if (alloc.isDirectBufferPooled()) {
+//                        // Non-direct buffers are copied into JDK's own internal direct buffer on every I/O.
+//                        // We can do a better job by using our pooled allocator. If the current allocator does not
+//                        // pool a direct buffer, we rely on JDK's direct buffer pool.
+//                        buf = alloc.directBuffer(readableBytes).writeBytes(buf);
+//                        in.current(buf);
+//                    }
+//                }
+//
                 boolean setOpWrite = false;
                 boolean done = false;
                 long flushedAmount = 0;
@@ -352,14 +353,6 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
     }
 
     protected abstract class AbstractXnioUnsafe extends AbstractUnsafe {
-        private boolean readPending;
-
-        @Override
-        public void beginRead() {
-            // Channel.read() or ChannelHandlerContext.read() was called
-            readPending = true;
-            super.beginRead();
-        }
 
         @Override
         protected void flush0() {
@@ -440,7 +433,7 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
                         close = localReadAmount < 0;
                         break;
                     }
-                    ((AbstractXnioUnsafe) unsafe()).readPending = false;
+                    readPending = false;
                     pipeline.fireChannelRead(byteBuf);
                     byteBuf = null;
 
@@ -480,7 +473,7 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
                 // * The user called Channel.read() or ChannelHandlerContext.read() in channelReadComplete(...) method
                 //
                 // See https://github.com/netty/netty/issues/2254
-                if (!config.isAutoRead() && !((AbstractXnioUnsafe) unsafe()).readPending) {
+                if (!config.isAutoRead() && !readPending) {
                     removeReadOp(channel);
                 }
             }
@@ -508,6 +501,7 @@ abstract class AbstractXnioSocketChannel  extends AbstractChannel implements Soc
 
     @Override
     protected void doBeginRead() throws Exception {
+        this.readPending = true;
         StreamConnection conn = connection();
         if (conn == null) {
             return;
